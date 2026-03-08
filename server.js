@@ -56,18 +56,34 @@ app.get('/proxy', async (req, res) => {
 // ── FREELANCERMAP RSS ──────────────────────────────────────────────────────
 app.get('/feeds/freelancermap', async (req, res) => {
   const { query = 'TGA', region } = req.query;
-  let url = `https://www.freelancermap.de/projektboerse.rss?query=${encodeURIComponent(query)}`;
-  if (region && region !== 'bundesweit') {
-    url += `&country=de&state=${encodeURIComponent(region)}`;
+
+  // Mehrere Feed-URLs probieren
+  const feedUrls = [
+    `https://www.freelancermap.de/feeds/projekte/int-international.xml?query=${encodeURIComponent(query)}`,
+    `https://www.freelancermap.de/feeds/projekte/engineering-technik.xml?query=${encodeURIComponent(query)}`,
+    `https://www.freelancermap.de/feeds/projekte/int-international.xml`,
+  ];
+
+  for (const url of feedUrls) {
+    try {
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+        }
+      });
+      const xml = await r.text();
+      // Prüfen ob echtes XML zurückkommt
+      if (xml.includes('<rss') || xml.includes('<feed') || xml.includes('<item')) {
+        console.log('freelancermap feed OK:', url);
+        res.setHeader('Content-Type', 'application/rss+xml');
+        return res.send(xml);
+      }
+    } catch (e) {
+      console.warn('freelancermap feed failed:', url, e.message);
+    }
   }
-  try {
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const xml = await r.text();
-    res.setHeader('Content-Type', 'application/rss+xml');
-    res.send(xml);
-  } catch (e) {
-    res.status(502).json({ error: e.message });
-  }
+  res.status(502).json({ error: 'Kein freelancermap Feed erreichbar' });
 });
 
 // ── GULP RSS ───────────────────────────────────────────────────────────────
@@ -106,7 +122,6 @@ app.post('/claude', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
       },
       body: JSON.stringify(req.body)
     });
