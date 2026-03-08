@@ -98,6 +98,25 @@ app.get('/feeds/ted', async (req, res) => {
   }
 });
 
+// ── ANTHROPIC API PROXY ────────────────────────────────────────────────────
+app.post('/claude', async (req, res) => {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    console.error('Claude proxy error:', e.message);
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // ── GOOGLE ALERT PROXY ─────────────────────────────────────────────────────
 app.get('/feeds/alert', async (req, res) => {
   const { url } = req.query;
